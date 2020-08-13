@@ -93,10 +93,8 @@ class Chan3DNew {
 		}
 		PRINT_DBUEG(Ga);
 
-		//Q为TDOA系统的协方差矩阵
-		Eigen::MatrixXd Q;
-		//Q.resize(1, R.cols());
-		cov(Q, R);
+		//Q为TDOA系统的噪声协方差矩阵
+		Eigen::MatrixXd Q = Eigen::MatrixXd::Identity(BSN - 1, BSN - 1);
 		PRINT_DBUEG(Q);
 
 		Eigen::MatrixXd Ga_t = Ga.transpose();
@@ -105,7 +103,7 @@ class Chan3DNew {
 		//PRINT_DBUEG(h_t);
 		Eigen::MatrixXd Q_i = Q.inverse();//pinv(Q_pinv, Q);
 		PRINT_DBUEG(Q_i);
-		Eigen::MatrixXd GatQi = Ga_t * Q_i(0, 0);
+		Eigen::MatrixXd GatQi = Ga_t * Q_i;
 		PRINT_DBUEG(GatQi);
 		Eigen::MatrixXd GatQiGa = GatQi * Ga;
 		PRINT_DBUEG(GatQiGa);
@@ -115,64 +113,88 @@ class Chan3DNew {
 
 		//MS与BS距离较近时
 		//za = pinv(Ga' * pinv(Q) * Ga) * Ga' * pinv(Q) * h
-		Eigen::MatrixXd za;
-		za = GatQiGa_i * GatQi * h;
-		PRINT_DBUEG(za);
+		Eigen::MatrixXd za0;
+		za0 = GatQiGa_i * GatQi * h;
+		PRINT_DBUEG(za0);
+
+		//利用这个估算值计算B
+		Eigen::MatrixXd B = Eigen::MatrixXd::Identity(BSN - 1, BSN - 1);
+		for (Eigen::Index i = 0; i < BSN - 1; i++)
+		{
+			B(i, i) = std::sqrt(std::pow(BS(0, i+1) - za0(0,0), 2) + std::pow(BS(1, i + 1) - za0(1, 0), 2) + std::pow(BS(2, i + 1) - za0(2, 0), 2));
+		}
+		PRINT_DBUEG(B);
+		
+		Eigen::MatrixXd FI = B * Q * B;
+		PRINT_DBUEG(FI);
+
+		Eigen::MatrixXd FI_i = FI.inverse();
+		PRINT_DBUEG(FI);
+		Eigen::MatrixXd GatFIi = Ga_t * FI_i;
+		PRINT_DBUEG(GatFIi);
+		Eigen::MatrixXd GatFIiGa = GatFIi * Ga;
+		PRINT_DBUEG(GatFIiGa);
+		Eigen::MatrixXd GatFIiGa_i;
+		pinv(GatFIiGa_i, GatFIiGa);
+		PRINT_DBUEG(GatFIiGa_i);
+
+		Eigen::MatrixXd za1 = GatFIiGa_i * GatFIi * h;
+		PRINT_DBUEG(za1);
 
 		//第二次WLS
-		double X1 = BS(0, 0);
-		double Y1 = BS(0, 0);
-		double Z1 = BS(0, 0);
-		Eigen::MatrixXd h2;
-		h2.resize(4, 1);
-		h2 <<
-			std::pow(za(0, 0) - X1, 2),
-			std::pow(za(1, 0) - Y1, 2),
-			std::pow(za(2, 0) - Z1, 2),
-			std::pow(za(3, 0), 2);
-		PRINT_DBUEG(h2);
+		// 第一次LS结果的协方差
+		Eigen::MatrixXd CovZa = GatFIiGa_i;
+		PRINT_DBUEG(CovZa);
+		// 第二次LS
+		Eigen::MatrixXd sB = Eigen::MatrixXd::Identity(4, 4);
+		for (Eigen::Index i = 0; i < sB.cols(); i++)
+		{
+			sB(i, i) = za1(i,0);
+		}
+		PRINT_DBUEG(sB);
+		//sFI
+		Eigen::MatrixXd sFI = 4 * sB * CovZa * sB;
+		PRINT_DBUEG(sFI);
 
-		Eigen::MatrixXd Ga2;
-		Ga2.resize(4, 3);
-		Ga2 <<
+		//sGa
+		Eigen::MatrixXd sGa;
+		sGa.resize(4, 3);
+		sGa << 
 			1, 0, 0,
 			0, 1, 0,
 			0, 0, 1,
 			1, 1, 1;
-		PRINT_DBUEG(Ga2);
+		PRINT_DBUEG(sGa);
+		// sh
+		Eigen::MatrixXd sh;
+		sh.resize(4, 1);
+		sh <<
+			std::pow(za1(0, 0), 2),
+			std::pow(za1(1, 0), 2),
+			std::pow(za1(2, 0), 2),
+			std::pow(za1(3, 0), 2);
+		PRINT_DBUEG(sh);
 
-		Eigen::MatrixXd B2;
-		B2.resize(4, 4);
-		B2 <<
-			za(0, 0) - X1, 0, 0, 0,
-			0, za(1, 0) - Y1, 0, 0,
-			0, 0, za(2, 0) - Z1, 0,
-			0, 0, 0, za(3, 0);
-		PRINT_DBUEG(B2);
+		Eigen::MatrixXd sGa_t = sGa.transpose();
+		PRINT_DBUEG(sGa_t);
+		Eigen::MatrixXd sFI_i = sFI.inverse();
+		PRINT_DBUEG(sFI_i);
+		Eigen::MatrixXd sGatsFIi = sGa_t * sFI_i;
+		PRINT_DBUEG(sGatsFIi);
+		Eigen::MatrixXd sGatsFIisGa = sGatsFIi * sGa;
+		PRINT_DBUEG(sGatsFIisGa);
+		Eigen::MatrixXd sGatsFIisGa_i;// = sGatsFIisGa.inverse();
+		pinv(sGatsFIisGa_i, sGatsFIisGa);
+		PRINT_DBUEG(sGatsFIisGa_i);
 
-		Eigen::MatrixXd Ga2_t = Ga2.transpose();
-		PRINT_DBUEG(Ga2_t);
-		Eigen::MatrixXd B2_i = B2.inverse();
-		PRINT_DBUEG(B2_i);
-		Eigen::MatrixXd Ga2tB2iGatQiGaB2i = Ga2_t * B2_i * Ga_t * Q_i(0, 0) * Ga * B2_i;
-		PRINT_DBUEG(Ga2tB2iGatQiGaB2i);
-		Eigen::MatrixXd Ga2tB2iGatQiGaB2iGa2 = Ga2tB2iGatQiGaB2i * Ga2;
-		PRINT_DBUEG(Ga2tB2iGatQiGaB2iGa2);
-		Eigen::MatrixXd Ga2tB2iGatQiGaB2iGa2_i;
-		pinv(Ga2tB2iGatQiGaB2iGa2_i, Ga2tB2iGatQiGaB2iGa2);
-		PRINT_DBUEG(Ga2tB2iGatQiGaB2iGa2_i);
-
-		//距离较远时
-		//za2 = pinv(Ga2' * pinv(B2) * Ga' * pinv(Q) * Ga * pinv(B2) * Ga2) * (Ga2' * pinv(B2) * Ga' * pinv(Q) * Ga * pinv(B2)) * h2;
-		Eigen::MatrixXd za2;
-		za2 = Ga2tB2iGatQiGaB2iGa2_i * Ga2tB2iGatQiGaB2i * h2;
+		// 第二次LS结果
+		Eigen::MatrixXd za2 = sGatsFIisGa_i * sGatsFIi * sh;
 		PRINT_DBUEG(za2);
 
-		Eigen::MatrixXd zp;
-		zp.resize(3, 1);
-		zp(0, 0) = std::pow(std::abs(za2(0, 0)), 0.5) + X1;
-		zp(1, 0) = std::pow(std::abs(za2(1, 0)), 0.5) + Y1;
-		zp(2, 0) = std::pow(std::abs(za2(2, 0)), 0.5) + Z1;
+		Eigen::MatrixXd sZ = za2.array().abs().sqrt();
+		PRINT_DBUEG(sZ);
+
+		Eigen::MatrixXd zp = sZ;
 		PRINT_DBUEG(zp);
 	}
 public:
@@ -236,9 +258,9 @@ public:
 	}
 
 public:
-	static Chan3D* Inst()
+	static Chan3DNew* Inst()
 	{
-		static Chan3D chan3dInstance;
-		return &chan3dInstance;
+		static Chan3DNew chan3dNewInstance;
+		return &chan3dNewInstance;
 	}
 };

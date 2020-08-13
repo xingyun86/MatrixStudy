@@ -6,3 +6,5 @@
 #include <iostream>
 
 // TODO: Reference additional headers your program requires here.
+
+#define PRINT_DBUEG(X) std::cout << #X":" << std::endl << X << std::endl
