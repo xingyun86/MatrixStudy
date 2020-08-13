@@ -74,7 +74,7 @@ class Chan3D {
 
 		//h = 1/2(Ri^2-ki+k1)
 		Eigen::MatrixXd h;
-		h.resize(BSN - 1, 1);
+		h.resize(1, BSN - 1);
 		for (Eigen::Index i = 0; i < BSN - 1; i++)
 		{
 			h(i, 0) = 0.5 * (std::pow(R(i, 0), 2) - k(i + 1, 0) + k(0, 0));
@@ -101,8 +101,8 @@ class Chan3D {
 
 		Eigen::MatrixXd Ga_t = Ga.transpose();
 		PRINT_DBUEG(Ga_t);
-		//Eigen::MatrixXd h_t = h.transpose();
-		//PRINT_DBUEG(h_t);
+		Eigen::MatrixXd h_t = h.transpose();
+		PRINT_DBUEG(h_t);
 		Eigen::MatrixXd Q_i = Q.inverse();//pinv(Q_pinv, Q);
 		PRINT_DBUEG(Q_i);
 		Eigen::MatrixXd GatQi = Ga_t * Q_i(0, 0);
@@ -114,9 +114,9 @@ class Chan3D {
 		PRINT_DBUEG(GatQiGa_i);
 
 		//MS与BS距离较近时
-		//za = pinv(Ga' * pinv(Q) * Ga) * Ga' * pinv(Q) * h
+		//za = pinv(Ga' * pinv(Q) * Ga) * Ga' * pinv(Q) * h'
 		Eigen::MatrixXd za;
-		za = GatQiGa_i * GatQi * h;
+		za = GatQiGa_i * GatQi * h_t;
 		PRINT_DBUEG(za);
 
 		//第二次WLS

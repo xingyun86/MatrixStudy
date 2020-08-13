@@ -9,7 +9,7 @@ end
 
 %h = 1/2(Ri^2-ki+k1)
 for i =1:BSN-1
-    h(i,1) = 0.5*(R(i)^2 - k(1,i+1) + k(1,1));  %注意k(i+1)
+    h(i) = 0.5*(R(i)^2 - k(1,i+1) + k(1,1));  %注意k(i+1)
 end
 
 
@@ -25,7 +25,7 @@ end
 Q = cov(R);
 
 %MS与BS距离较近时
-za = pinv(Ga' * inv(Q) * Ga) * Ga' * inv(Q) * h
+za = pinv(Ga' * inv(Q) * Ga) * Ga' * inv(Q) * h'
 
 %% 第二次WLS
 %h'
