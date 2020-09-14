@@ -8,3 +8,4 @@ project ("MatrixStudy")
 # Include sub-projects.
 add_subdirectory ("eigen-3.3.7")
 add_subdirectory ("MatrixStudy")
+add_subdirectory ("KalmanStudy")
